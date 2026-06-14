@@ -1,0 +1,2 @@
+const s1 = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjhmYmVlYmZkLWJkZjYtNGM4YS05ZjEwLTE5ZTkzY2UxN2ZkYiIsImVtYWlsIjoibnVvdm9AdGVzdC5pdCIsImlhdCI6MTc3OTg4NzQ3NSwiZXhwIjoxNzc5ODg3Mzc1fQ.W1yLFaZYyrX89oUIe5gkNJvl2wPL5dsgY9-3Cl1RDhU";
+console.log("s1 length:", s1.length);

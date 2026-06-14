@@ -1,0 +1,170 @@
+<div class="min-h-screen bg-slate-50 text-slate-800 font-sans flex flex-col md:flex-row overflow-x-hidden">
+
+  <!-- Mobile Top Bar (Visible only on mobile/tablet) -->
+  <header class="fixed top-0 left-0 right-0 h-16 bg-white/90 backdrop-blur-md border-b border-slate-200/80 shadow-sm flex items-center justify-between px-4 z-40 md:hidden">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary to-primary-light flex items-center justify-center text-xl shadow-md shadow-primary/20 border border-primary-light/10">
+        🏔️
+      </div>
+      <div>
+        <h1 class="text-sm font-black text-slate-900 tracking-tight leading-none">LaViaGiusta</h1>
+        <span class="text-[9px] text-primary-light font-bold uppercase tracking-wider">Valle Castellana</span>
+      </div>
+    </div>
+
+    <!-- Hamburger Button -->
+    <button
+      (click)="toggleSidebar()"
+      class="w-11 h-11 rounded-xl flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-100 active:scale-95 transition-all"
+      aria-label="Apri menu"
+    >
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+      </svg>
+    </button>
+  </header>
+
+  <!-- Sidebar Backdrop Overlay (for mobile off-canvas closing) -->
+  @if (isSidebarOpen()) {
+    <div
+      (click)="closeSidebar()"
+      class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-40 md:hidden transition-opacity duration-300"
+    ></div>
+  }
+
+  <!-- Off-Canvas Sidebar (Slide-in) -->
+  <aside
+    [class.translate-x-0]="isSidebarOpen()"
+    [class.-translate-x-full]="!isSidebarOpen()"
+    class="fixed inset-y-0 left-0 w-72 bg-white text-slate-800 flex flex-col justify-between z-50
+           transform transition-transform duration-300 ease-out border-r border-slate-200
+           md:fixed md:translate-x-0 md:flex md:w-64 md:h-screen"
+  >
+    <div class="flex flex-col flex-1">
+      <!-- Sidebar Header -->
+      <div class="p-6 border-b border-slate-100 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary to-primary-light flex items-center justify-center text-xl shadow-md shadow-primary/20 border border-primary-light/10">
+            🏔️
+          </div>
+          <div>
+            <h1 class="text-base font-extrabold text-slate-900 tracking-wide leading-tight">LaViaGiusta</h1>
+            <p class="text-[10px] text-primary-light font-bold uppercase tracking-wider">Valle Castellana</p>
+          </div>
+        </div>
+        <!-- Close button for mobile -->
+        <button
+          (click)="closeSidebar()"
+          class="md:hidden w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 active:scale-95 transition-all"
+          aria-label="Chiudi menu"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Navigation Links -->
+      <nav class="p-4 space-y-1.5 flex-1">
+        <a
+          routerLink="/"
+          routerLinkActive="bg-primary/10 text-primary border-primary/20 shadow-xs font-bold"
+          [routerLinkActiveOptions]="{exact: true}"
+          (click)="closeSidebar()"
+          class="flex items-center gap-3 px-4 py-3 min-h-[48px] rounded-xl text-sm font-semibold transition-all border border-transparent text-slate-600 hover:bg-slate-50 hover:text-slate-900 active:scale-98"
+        >
+          <span class="text-lg">🏠</span>
+          <span>Home</span>
+        </a>
+        <a
+          routerLink="/trails"
+          routerLinkActive="bg-primary/10 text-primary border-primary/20 shadow-xs font-bold"
+          (click)="closeSidebar()"
+          class="flex items-center gap-3 px-4 py-3 min-h-[48px] rounded-xl text-sm font-semibold transition-all border border-transparent text-slate-600 hover:bg-slate-50 hover:text-slate-900 active:scale-98"
+        >
+          <span class="text-lg">🥾</span>
+          <span>Sentieri</span>
+        </a>
+        @if (authService.isOperator()) {
+          <a
+            routerLink="/admin/live-map"
+            routerLinkActive="bg-primary/10 text-primary border-primary/20 shadow-xs font-bold"
+            (click)="closeSidebar()"
+            class="flex items-center gap-3 px-4 py-3 min-h-[48px] rounded-xl text-sm font-semibold transition-all border border-transparent text-slate-600 hover:bg-slate-50 hover:text-slate-900 active:scale-98"
+          >
+            <span class="text-lg">🗺️</span>
+            <span>Mappa Watchdog</span>
+          </a>
+        }
+        <a
+          routerLink="/community"
+          routerLinkActive="bg-primary/10 text-primary border-primary/20 shadow-xs font-bold"
+          (click)="closeSidebar()"
+          class="flex items-center gap-3 px-4 py-3 min-h-[48px] rounded-xl text-sm font-semibold transition-all border border-transparent text-slate-600 hover:bg-slate-50 hover:text-slate-900 active:scale-98"
+        >
+          <span class="text-lg">📸</span>
+          <span>Community</span>
+        </a>
+        @if (authService.isTourist()) {
+          <a
+            routerLink="/user/dashboard"
+            routerLinkActive="bg-primary/10 text-primary border-primary/20 shadow-xs font-bold"
+            (click)="closeSidebar()"
+            class="flex items-center gap-3 px-4 py-3 min-h-[48px] rounded-xl text-sm font-semibold transition-all border border-transparent text-slate-600 hover:bg-slate-50 hover:text-slate-900 active:scale-98"
+          >
+            <span class="text-lg">👤</span>
+            <span>Area Privata</span>
+          </a>
+        }
+      </nav>
+    </div>
+
+    <!-- User/Operator Identity Card -->
+    <div class="p-6 border-t border-slate-100 bg-slate-50">
+      @if (authService.isLoggedIn()) {
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-xs font-black text-primary border border-primary/20">
+            {{ authService.isOperator() ? 'OP' : 'TU' }}
+          </div>
+          <div>
+            <p class="text-xs font-bold text-slate-900 leading-tight">{{ authService.currentUser()?.fullName }}</p>
+            <p class="text-[9px] text-primary-light font-semibold uppercase tracking-wider mt-0.5">
+              {{ authService.isOperator() ? 'Protezione Civile' : 'Escursionista' }}
+            </p>
+          </div>
+        </div>
+      } @else {
+        <a
+          routerLink="/auth"
+          (click)="closeSidebar()"
+          class="flex items-center gap-2.5 text-xs font-bold text-slate-600 hover:text-primary min-h-[44px]"
+        >
+          🔑 Accedi / Registrati
+        </a>
+      }
+    </div>
+  </aside>
+
+  <!-- Main Viewport Content -->
+  <main class="flex-1 flex flex-col min-h-screen pt-16 md:pt-0 md:pl-64 overflow-y-auto">
+    <!-- Operations Header (Desktop Only) -->
+    <header class="hidden md:flex h-16 border-b border-slate-200/80 items-center justify-between px-8 bg-white z-20 shrink-0 shadow-sm">
+      <div class="flex items-center gap-4">
+        <h2 class="text-xs font-black text-slate-700 uppercase tracking-widest">Centro Operativo Laga</h2>
+        <span class="px-2.5 py-0.5 text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full flex items-center gap-1.5 shadow-xs">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          Sistema di Protezione Attivo
+        </span>
+      </div>
+      <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+        Valle Castellana, Italia
+      </div>
+    </header>
+
+    <!-- Content Area -->
+    <div class="flex-1 flex flex-col bg-slate-50">
+      <router-outlet></router-outlet>
+    </div>
+  </main>
+
+</div>

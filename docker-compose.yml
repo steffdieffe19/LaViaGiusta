@@ -1,0 +1,39 @@
+version: '3.9'
+
+services:
+  # ── PostgreSQL + PostGIS ──────────────────────────────────
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: laviagiusta-db
+    environment:
+      POSTGRES_DB: laviagiusta
+      POSTGRES_USER: lvg_dev
+      POSTGRES_PASSWORD: lvg_dev_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lvg_dev -d laviagiusta"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis (per BullMQ job queue — Watchdog Timer) ─────────
+  redis:
+    image: redis:7-alpine
+    container_name: laviagiusta-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
+  redisdata:

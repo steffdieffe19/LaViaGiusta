@@ -1,0 +1,382 @@
+// ════════════════════════════════════════════════════════════
+// LaViaGiusta — Prisma Schema
+// PostgreSQL + PostGIS
+// ════════════════════════════════════════════════════════════
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [uuid_ossp(map: "uuid-ossp"), postgis]
+}
+
+// ── Users ──────────────────────────────────────────────────
+
+model User {
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  email           String   @unique @db.VarChar(255)
+  passwordHash    String   @map("password_hash") @db.VarChar(255)
+  fullName        String   @map("full_name") @db.VarChar(150)
+  phone           String?  @db.VarChar(20)
+  role            String   @default("tourist") @db.VarChar(30)
+
+  // Emergency contact
+  emergencyContactName  String? @map("emergency_contact_name") @db.VarChar(150)
+  emergencyContactPhone String? @map("emergency_contact_phone") @db.VarChar(20)
+
+  // Medical profile (encrypted at rest, GDPR Art. 9)
+  medicalProfile  Json?    @map("medical_profile")
+
+  // Preferences
+  locale          String   @default("it") @db.VarChar(5)
+  avatarUrl       String?  @map("avatar_url")
+  fitnessLevel    String   @default("intermediate") @map("fitness_level") @db.VarChar(20)
+
+  // GDPR
+  privacyConsent     Boolean   @default(false) @map("privacy_consent")
+  privacyConsentDate DateTime? @map("privacy_consent_date") @db.Timestamptz()
+  dataRetentionUntil DateTime? @map("data_retention_until") @db.Timestamptz()
+
+  // Timestamps
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz()
+
+  // Relations
+  sessions        HikingSession[]
+  badges          UserBadge[]
+  stamps          TrailStamp[]
+  emergencyEvents EmergencyEvent[]
+  communityPosts  CommunityPost[]
+  postLikes       PostLike[]
+  postComments    PostComment[]
+  trailReviews    TrailReview[]
+
+  @@map("users")
+}
+
+// ── Trails ─────────────────────────────────────────────────
+// Note: PostGIS geometry columns are managed via raw SQL migrations
+// because Prisma doesn't natively support geometry types.
+// The route_geom, start_point, end_point columns are added in migration SQL.
+
+model Trail {
+  id           String  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  code         String  @unique @db.VarChar(20)
+  name         String  @db.VarChar(255)
+  description  String?
+
+  // Geometry columns exist in DB but are not in Prisma model
+  // route_geom  GEOMETRY(LINESTRING, 4326)  -- managed via raw SQL
+  // start_point GEOMETRY(POINT, 4326)       -- managed via raw SQL
+  // end_point   GEOMETRY(POINT, 4326)       -- managed via raw SQL
+  geofenceBuffer Int    @default(200) @map("geofence_buffer")
+
+  // Trail metrics
+  distanceMeters   Float   @map("distance_meters")
+  elevationGain    Float?  @map("elevation_gain")
+  elevationLoss    Float?  @map("elevation_loss")
+  elevationMin     Float?  @map("elevation_min")
+  elevationMax     Float?  @map("elevation_max")
+  difficulty       String  @db.VarChar(5)  // T, E, EE, EEA
+
+  // Timing (Watchdog base)
+  avgDurationMinutes    Int  @map("avg_duration_minutes")
+  minDurationMinutes    Int? @map("min_duration_minutes")
+  maxDurationMinutes    Int? @map("max_duration_minutes")
+  watchdogTolerancePct  Int  @default(40) @map("watchdog_tolerance_pct")
+
+  // Metadata
+  surfaceType     String?  @map("surface_type") @db.VarChar(50)
+  isLoop          Boolean  @default(false) @map("is_loop")
+  isActive        Boolean  @default(true) @map("is_active")
+  seasonalClosure String?  @map("seasonal_closure") @db.VarChar(100)
+  gpxFileUrl      String?  @map("gpx_file_url")
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  // Relations
+  pois           TrailPoi[]
+  sessions       HikingSession[]
+  stamps         TrailStamp[]
+  communityPosts CommunityPost[]
+  reviews        TrailReview[]
+
+  @@map("trails")
+}
+
+model TrailPoi {
+  id          String  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  trailId     String  @map("trail_id") @db.Uuid
+  name        String  @db.VarChar(255)
+  description String?
+  category    String  @db.VarChar(50)  // fontana, rifugio, panorama, pericolo, storico
+  // location GEOMETRY(POINT, 4326) -- managed via raw SQL
+  photoUrl    String? @map("photo_url")
+  isDanger    Boolean @default(false) @map("is_danger")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  trail Trail @relation(fields: [trailId], references: [id], onDelete: Cascade)
+
+  @@index([trailId])
+  @@map("trail_pois")
+}
+
+// ── Hiking Sessions (Watchdog Core) ────────────────────────
+
+enum SessionStatus {
+  checked_in
+  active
+  watchdog_alert
+  emergency
+  completed
+  cancelled
+  resolved
+
+  @@map("session_status")
+}
+
+model HikingSession {
+  id      String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId  String        @map("user_id") @db.Uuid
+  trailId String        @map("trail_id") @db.Uuid
+  status  SessionStatus @default(checked_in)
+
+  // Watchdog timing
+  checkInAt           DateTime  @default(now()) @map("check_in_at") @db.Timestamptz()
+  startedAt           DateTime? @map("started_at") @db.Timestamptz()
+  expectedEndAt       DateTime? @map("expected_end_at") @db.Timestamptz()
+  watchdogTriggeredAt DateTime? @map("watchdog_triggered_at") @db.Timestamptz()
+  userRespondedAt     DateTime? @map("user_responded_at") @db.Timestamptz()
+  emergencyTriggeredAt DateTime? @map("emergency_triggered_at") @db.Timestamptz()
+  completedAt         DateTime? @map("completed_at") @db.Timestamptz()
+
+  // Group support
+  groupId        String?  @map("group_id") @db.Uuid
+  isGroupLeader  Boolean  @default(false) @map("is_group_leader")
+
+  // Last known position (geometry managed via raw SQL)
+  // last_known_location GEOMETRY(POINT, 4326)
+  lastLocationAt   DateTime? @map("last_location_at") @db.Timestamptz()
+  lastBatteryLevel Int?      @map("last_battery_level")
+
+  // Offline
+  isOffline    Boolean   @default(false) @map("is_offline")
+  offlineSince DateTime? @map("offline_since") @db.Timestamptz()
+
+  // Post-hike metrics
+  actualDurationMinutes Int?   @map("actual_duration_minutes")
+  actualDistanceMeters  Float? @map("actual_distance_meters")
+  avgSpeedKmh           Float? @map("avg_speed_kmh")
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  // Relations
+  user            User             @relation(fields: [userId], references: [id])
+  trail           Trail            @relation(fields: [trailId], references: [id])
+  locationLogs    LocationLog[]
+  emergencyEvents EmergencyEvent[]
+  stamps          TrailStamp[]
+
+  @@index([userId])
+  @@index([trailId])
+  @@index([status])
+  @@index([groupId])
+  @@map("hiking_sessions")
+}
+
+model LocationLog {
+  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  sessionId    String   @map("session_id") @db.Uuid
+  // location GEOMETRY(POINT, 4326) -- managed via raw SQL
+  altitude     Float?
+  accuracy     Float?
+  speed        Float?
+  heading      Float?
+  batteryLevel Int?     @map("battery_level")
+  isOffline    Boolean  @default(false) @map("is_offline")
+  recordedAt   DateTime @default(now()) @map("recorded_at") @db.Timestamptz()
+
+  session HikingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([sessionId, recordedAt(sort: Desc)])
+  @@map("location_logs")
+}
+
+// ── Emergency Events ───────────────────────────────────────
+
+model EmergencyEvent {
+  id          String @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  sessionId   String @map("session_id") @db.Uuid
+  userId      String @map("user_id") @db.Uuid
+
+  eventType   String @map("event_type") @db.VarChar(30)
+  // gps_coordinates GEOMETRY(POINT, 4326) -- managed via raw SQL
+
+  smsSentTo     String[] @map("sms_sent_to")
+  callInitiated Boolean  @default(false) @map("call_initiated")
+  callNumber    String?  @map("call_number") @db.VarChar(20)
+
+  userSnapshot    Json?     @map("user_snapshot")
+  resolvedAt      DateTime? @map("resolved_at") @db.Timestamptz()
+  resolvedBy      String?   @map("resolved_by") @db.Uuid
+  resolutionNotes String?   @map("resolution_notes")
+  falseAlarm      Boolean?  @map("false_alarm")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  session HikingSession @relation(fields: [sessionId], references: [id])
+  user    User          @relation(fields: [userId], references: [id])
+
+  @@index([sessionId])
+  @@index([userId])
+  @@map("emergency_events")
+}
+
+// ── Gamification (Phase 2) ─────────────────────────────────
+
+model Badge {
+  id          String  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  code        String  @unique @db.VarChar(50)
+  name        String  @db.VarChar(150)
+  description String?
+  iconUrl     String  @map("icon_url")
+  category    String  @db.VarChar(50)  // trail, achievement, seasonal, special
+  criteria    Json
+  points      Int     @default(0)
+  rarity      String  @default("common") @db.VarChar(20)
+  isActive    Boolean @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  users UserBadge[]
+
+  @@map("badges")
+}
+
+model UserBadge {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  badgeId   String   @map("badge_id") @db.Uuid
+  sessionId String?  @map("session_id") @db.Uuid
+  earnedAt  DateTime @default(now()) @map("earned_at") @db.Timestamptz()
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badge Badge @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, badgeId])
+  @@index([userId])
+  @@map("user_badges")
+}
+
+model TrailStamp {
+  id            String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  trailId       String   @map("trail_id") @db.Uuid
+  sessionId     String   @map("session_id") @db.Uuid
+  stampImageUrl String?  @map("stamp_image_url")
+  earnedAt      DateTime @default(now()) @map("earned_at") @db.Timestamptz()
+
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trail   Trail         @relation(fields: [trailId], references: [id])
+  session HikingSession @relation(fields: [sessionId], references: [id])
+
+  @@unique([userId, trailId])
+  @@index([userId])
+  @@map("trail_stamps")
+}
+
+// ── Admin Users ────────────────────────────────────────────
+
+model AdminUser {
+  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  email        String   @unique @db.VarChar(255)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  fullName     String   @map("full_name") @db.VarChar(150)
+  role         String   @default("operator") @db.VarChar(30)
+  phone        String?  @db.VarChar(20)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  @@map("admin_users")
+}
+
+// ── Watchdog Config ────────────────────────────────────────
+
+model WatchdogConfig {
+  key         String   @id @db.VarChar(100)
+  value       Json
+  description String?
+  updatedBy   String?  @map("updated_by") @db.Uuid
+  updatedAt   DateTime @default(now()) @map("updated_at") @db.Timestamptz()
+
+  @@map("watchdog_config")
+}
+
+// ── Community Posts ─────────────────────────────────────────
+
+model CommunityPost {
+  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  trailId    String   @map("trail_id") @db.Uuid
+  imagePath  String   @map("image_path") @db.VarChar(255)
+  caption    String
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trail    Trail         @relation(fields: [trailId], references: [id], onDelete: Cascade)
+  likes    PostLike[]
+  comments PostComment[]
+
+  @@map("community_posts")
+}
+
+model PostLike {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  postId    String   @map("post_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  @@map("post_likes")
+}
+
+model PostComment {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  postId    String   @map("post_id") @db.Uuid
+  content   String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@map("post_comments")
+}
+
+model TrailReview {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  trailId   String   @map("trail_id") @db.Uuid
+  rating    Int
+  comment   String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trail Trail @relation(fields: [trailId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, trailId])
+  @@map("trail_reviews")
+}
