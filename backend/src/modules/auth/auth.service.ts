@@ -78,26 +78,38 @@ export class AuthService {
    * Logs in a user by validating credentials and returning tokens
    */
   public static async login(data: LoginRequest) {
+    console.log("[Auth Debug] Attempting to find standard user by email:", data.email);
     let user = await prisma.user.findUnique({
       where: { email: data.email },
     });
+
+    console.log("[Auth Debug] Standard user lookup result:", user ? { id: user.id, email: user.email, deleted: !!user.deletedAt } : "Not found");
 
     let isPasswordValid = false;
     let isAdminUser = false;
     let dbAdminUser: any = null;
 
     if (user && !user.deletedAt) {
+      console.log("[Auth Debug] Comparing standard user password...");
       isPasswordValid = await bcrypt.compare(data.password, user.passwordHash);
+      console.log("[Auth Debug] Standard user password valid:", isPasswordValid);
     } else {
+      console.log("[Auth Debug] Standard user not found/deleted, executing fallback query on admin_users table for email:", data.email);
       // Fallback to adminUser table
       dbAdminUser = await prisma.adminUser.findUnique({
         where: { email: data.email },
       });
+      console.log("[Auth Debug] Admin user lookup result:", dbAdminUser ? { id: dbAdminUser.id, email: dbAdminUser.email, isActive: dbAdminUser.isActive } : "Not found");
+
       if (dbAdminUser && dbAdminUser.isActive) {
+        console.log("[Auth Debug] Comparing admin user password...");
         isPasswordValid = await bcrypt.compare(data.password, dbAdminUser.passwordHash);
+        console.log("[Auth Debug] Admin user password valid:", isPasswordValid);
         isAdminUser = true;
       }
     }
+
+    console.log("[Auth Debug] Auth resolution: isPasswordValid =", isPasswordValid, "isAdmin =", isAdminUser);
 
     if (!isPasswordValid) {
       throw new UnauthorizedError('Invalid email or password');
