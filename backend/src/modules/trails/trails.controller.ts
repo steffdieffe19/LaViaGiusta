@@ -280,15 +280,34 @@ export class TrailsController {
         `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max` +
         `&forecast_days=7&timezone=auto`;
 
-      const weatherResponse = await fetch(url);
-      if (!weatherResponse.ok) {
-        throw new Error(`Open-Meteo API error: ${weatherResponse.status} ${weatherResponse.statusText}`);
-      }
+      let raw: any;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 seconds timeout
 
-      const raw = await weatherResponse.json() as any;
+      try {
+        const weatherResponse = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeoutId);
 
-      if (!raw || !raw.current || !raw.hourly || !raw.daily) {
-        throw new Error('Formato risposta Open-Meteo non valido o incompleto.');
+        if (!weatherResponse.ok) {
+          throw new Error(`Open-Meteo API error: ${weatherResponse.status} ${weatherResponse.statusText}`);
+        }
+
+        raw = await weatherResponse.json() as any;
+
+        if (!raw || !raw.current || !raw.hourly || !raw.daily) {
+          throw new Error('Formato risposta Open-Meteo non valido o incompleto.');
+        }
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        console.error('[Weather Service Timeout/Error]:', fetchError);
+        
+        // Return fallback response gracefully without throwing/propagating the exception
+        res.status(200).json({
+          success: false,
+          error: 'Meteo non disponibile',
+          data: null
+        });
+        return;
       }
 
       // ── Current conditions ─────────────────────────────────────────────────
