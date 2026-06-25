@@ -10,6 +10,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { catchError, of } from 'rxjs';
+import { environment } from '../../../../environments/environment';
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -216,7 +217,7 @@ export class ActiveHikeComponent implements OnInit, OnDestroy {
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly ngZone = inject(NgZone);
 
-  private readonly BASE_URL = 'http://localhost:3000/api/v1';
+  private readonly BASE_URL = environment.apiUrl;
 
   // ── State ──────────────────────────────────────────────────────────────────
   public loading = true;

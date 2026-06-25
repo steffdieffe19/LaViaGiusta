@@ -18,6 +18,7 @@ import { Chart, registerables } from 'chart.js';
 import { AuthService } from '../../../services/auth.service';
 import { SessionsService } from '../../../services/sessions.service';
 import { WeatherService, WeatherData } from '../../../services/weather.service';
+import { environment } from '../../../../environments/environment';
 
 Chart.register(...registerables);
 
@@ -714,7 +715,7 @@ export class TrailDetailComponent implements OnInit, AfterViewInit, OnDestroy {
   public submittingReview = false;
   public reviewError: string | null = null;
 
-  private readonly BASE_URL = 'http://localhost:3000/api/v1';
+  private readonly BASE_URL = environment.apiUrl;
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
 

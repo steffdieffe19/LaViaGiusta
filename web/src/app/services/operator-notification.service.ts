@@ -1,6 +1,7 @@
 import { Injectable, inject, effect, signal, OnDestroy } from '@angular/core';
 import { AuthService } from './auth.service';
 import { SessionsService, HikerSession } from './sessions.service';
+import { environment } from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
@@ -42,7 +43,7 @@ export class OperatorNotificationService implements OnDestroy {
     const token = localStorage.getItem('access_token') || '';
     if (!token) return;
 
-    this.eventSource = new EventSource(`http://localhost:3000/api/v1/admin/hikes/stream?token=${encodeURIComponent(token)}`);
+    this.eventSource = new EventSource(`${environment.apiUrl}/admin/hikes/stream?token=${encodeURIComponent(token)}`);
 
     this.eventSource.onmessage = (event) => {
       try {

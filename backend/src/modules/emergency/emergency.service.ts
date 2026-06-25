@@ -25,7 +25,7 @@ export class EmergencyService {
       `Quota: ${location.alt ? Math.round(location.alt) + 'm' : 'N/D'}\n` +
       `Scheda Medica: Gr. Sanguigno ${user.medicalProfile?.blood_type || 'N/D'}, Allergie: ${user.medicalProfile?.allergies?.join(', ') || 'Nessuna'}\n` +
       `Contatto Emergenza: ${user.emergencyContactName || 'N/D'} (${user.emergencyContactPhone || 'N/D'})\n` +
-      `Visualizza sulla mappa del Comune: http://localhost:3000/admin/sessions/${session.id}`;
+      `Visualizza sulla mappa del Comune: ${env.FRONTEND_URL}/admin/live-map`;
 
     const smsNumbers = process.env.EMERGENCY_SMS_NUMBERS ? process.env.EMERGENCY_SMS_NUMBERS.split(',') : ['118'];
     const twilioNumber = env.TWILIO_PHONE_NUMBER;

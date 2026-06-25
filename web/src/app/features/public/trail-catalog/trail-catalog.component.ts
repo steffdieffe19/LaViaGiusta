@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { catchError, of } from 'rxjs';
+import { environment } from '../../../../environments/environment';
 
 export interface TrailItem {
   id: string;
@@ -246,7 +247,7 @@ export class TrailCatalogComponent implements OnInit {
   private loadTrails(): void {
     this.loading = true;
     this.http
-      .get<{ success: boolean; data: TrailItem[] }>('http://localhost:3000/api/v1/trails')
+      .get<{ success: boolean; data: TrailItem[] }>(`${environment.apiUrl}/trails`)
       .pipe(catchError(err => {
         console.error('Trails fetch error:', err);
         return of(null);
@@ -255,7 +256,7 @@ export class TrailCatalogComponent implements OnInit {
         if (res?.success) {
           this.trails = res.data;
         } else {
-          this.error = 'Impossibile connettersi al backend su http://localhost:3000. Assicurati che sia avviato.';
+          this.error = 'Impossibile connettersi al backend. Assicurati che sia avviato.';
         }
         this.loading = false;
       });

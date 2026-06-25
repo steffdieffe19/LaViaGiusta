@@ -4,6 +4,7 @@ import { catchError, switchMap, throwError, Observable, BehaviorSubject, filter,
 import { AuthService } from '../services/auth.service';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
+import { environment } from '../../environments/environment';
 
 let isRefreshing = false;
 const refreshTokenSubject = new BehaviorSubject<string | null>(null);
@@ -16,7 +17,7 @@ export const authInterceptor: HttpInterceptorFn = (req: HttpRequest<unknown>, ne
   let authReq = req;
 
   // Clone request to add authorization header if token exists and target is our backend API
-  if (token && req.url.includes('http://localhost:3000/api/v1')) {
+  if (token && req.url.includes(environment.apiUrl)) {
     authReq = req.clone({
       setHeaders: {
         Authorization: `Bearer ${token}`
@@ -49,7 +50,7 @@ function handle401Error(
     const refreshToken = localStorage.getItem('refresh_token');
     if (refreshToken) {
       return http.post<{ success: boolean; data: { tokens: { accessToken: string; refreshToken: string } } }>(
-        'http://localhost:3000/api/v1/auth/refresh',
+        `${environment.apiUrl}/auth/refresh`,
         { refreshToken }
       ).pipe(
         switchMap((res) => {

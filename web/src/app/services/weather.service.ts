@@ -1,6 +1,7 @@
 import { inject, Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 export interface WeatherData {
   current: {
@@ -32,7 +33,7 @@ export interface WeatherData {
 })
 export class WeatherService {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = 'http://localhost:3000/api/v1';
+  private readonly baseUrl = environment.apiUrl;
 
   /**
    * Fetch weather forecast for a specific trail ID

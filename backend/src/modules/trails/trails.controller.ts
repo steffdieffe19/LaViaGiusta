@@ -255,8 +255,19 @@ export class TrailsController {
 
       const { lat, lng } = coordsResult[0];
 
-      if (lat == null || lng == null) {
-        res.status(422).json({ success: false, error: 'Coordinate geografiche non disponibili per questo sentiero.' });
+      if (
+        lat == null ||
+        lng == null ||
+        typeof lat !== 'number' ||
+        typeof lng !== 'number' ||
+        isNaN(lat) ||
+        isNaN(lng) ||
+        lat < -90 ||
+        lat > 90 ||
+        lng < -180 ||
+        lng > 180
+      ) {
+        res.status(400).json({ success: false, message: 'Coordinate mancanti per questo sentiero' });
         return;
       }
 
@@ -275,6 +286,10 @@ export class TrailsController {
       }
 
       const raw = await weatherResponse.json() as any;
+
+      if (!raw || !raw.current || !raw.hourly || !raw.daily) {
+        throw new Error('Formato risposta Open-Meteo non valido o incompleto.');
+      }
 
       // ── Current conditions ─────────────────────────────────────────────────
       const current = {
@@ -322,7 +337,8 @@ export class TrailsController {
         data: { current, hourly, daily },
       });
     } catch (error) {
-      next(error);
+      console.error('[Weather API Error]:', error);
+      res.status(500).json({ success: false, message: 'Impossibile recuperare i dati meteo' });
     }
   }
 }

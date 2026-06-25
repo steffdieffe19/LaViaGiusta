@@ -1,10 +1,11 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { RouterModule, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { catchError, of } from 'rxjs';
 import { AuthService } from '../../../services/auth.service';
+import { environment } from '../../../../environments/environment';
 
 export interface UserStats {
   totalHikes: number;
@@ -821,7 +822,7 @@ export class ProfileComponent implements OnInit {
     avatarUrl: ''
   };
 
-  private readonly API_BASE_URL = 'http://localhost:3000';
+  private readonly API_BASE_URL = environment.baseUrl;
 
   public ngOnInit(): void {
     this.loadProfile();

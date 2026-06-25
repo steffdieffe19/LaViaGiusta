@@ -1,6 +1,7 @@
 import { inject, Injectable, OnDestroy, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { catchError, map, Observable, of, tap } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 export interface HikerSession {
   id: string;
@@ -29,7 +30,7 @@ export interface HikerSession {
 })
 export class SessionsService implements OnDestroy {
   private readonly http = inject(HttpClient);
-  private readonly apiUrl = 'http://localhost:3000/api/v1/admin';
+  private readonly apiUrl = `${environment.apiUrl}/admin`;
 
   // Signals for reactive state management
   public readonly activeSessions = signal<HikerSession[]>([]);

@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { catchError, of } from 'rxjs';
 import { AuthService } from '../../../services/auth.service';
+import { environment } from '../../../../environments/environment';
 
 export interface PostCommentListItem {
   id: string;
@@ -384,7 +385,7 @@ export class CommunityFeedComponent implements OnInit {
   public selectedFile: File | null = null;
   public imagePreviewUrl: string | null = null;
 
-  private readonly API_BASE_URL = 'http://localhost:3000';
+  private readonly API_BASE_URL = environment.baseUrl;
 
   public ngOnInit(): void {
     this.loadPosts();

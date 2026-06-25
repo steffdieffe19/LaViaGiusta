@@ -4,6 +4,7 @@ import { CommonModule } from '@angular/common';
 import { AuthService } from './services/auth.service';
 import { OperatorNotificationService } from './services/operator-notification.service';
 import { SessionsService, HikerSession } from './services/sessions.service';
+import { environment } from '../environments/environment';
 
 @Component({
   selector: 'app-root',
@@ -16,6 +17,7 @@ export class AppComponent {
   title = 'laviagiusta-web';
   isSidebarOpen = signal(false);
   isNotificationPanelOpen = signal(false);
+  public readonly baseUrl = environment.baseUrl;
 
   public readonly authService = inject(AuthService);
   public readonly operatorNotificationService = inject(OperatorNotificationService);

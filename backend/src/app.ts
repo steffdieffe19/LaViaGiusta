@@ -28,9 +28,25 @@ process.on('unhandledRejection', (reason) => {
 // ── Middleware ──────────────────────────────────────────────
 app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(cors({
-  origin: env.NODE_ENV === 'development'
-    ? ['http://localhost:4200', 'http://127.0.0.1:4200']
-    : [],
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1');
+    const isVercel = origin.endsWith('.vercel.app') || origin.includes('vercel.app');
+    let isFrontendUrl = false;
+    if (env.FRONTEND_URL) {
+      try {
+        const parsed = new URL(env.FRONTEND_URL);
+        isFrontendUrl = origin === parsed.origin;
+      } catch {
+        isFrontendUrl = origin === env.FRONTEND_URL;
+      }
+    }
+    if (isLocalhost || isVercel || isFrontendUrl) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,

@@ -5,6 +5,7 @@ import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { catchError, of } from 'rxjs';
 import { AuthService } from '../../../services/auth.service';
+import { environment } from '../../../../environments/environment';
 
 interface AuthResponse {
   success: boolean;
@@ -269,7 +270,7 @@ export class AuthComponent implements OnInit {
   public conditions = '';
   public medications = '';
 
-  private readonly BASE_URL = 'http://localhost:3000/api/v1/auth';
+  private readonly BASE_URL = `${environment.apiUrl}/auth`;
 
   ngOnInit(): void {
     // Parse query parameters
