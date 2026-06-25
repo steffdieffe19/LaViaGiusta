@@ -27,7 +27,7 @@ import { AuthService } from '../../../services/auth.service';
             <a routerLink="/community" class="hover:text-primary transition-colors">Community</a>
             @if (authService.isLoggedIn()) {
               <a 
-                [routerLink]="authService.isOperator() ? '/admin/live-map' : '/user/dashboard'" 
+                [routerLink]="authService.isOperator() ? '/admin/live-map' : '/user/profile'" 
                 class="hover:text-primary transition-colors"
               >
                 Il mio Profilo
@@ -113,10 +113,10 @@ import { AuthService } from '../../../services/auth.service';
                 </a>
               } @else if (authService.isTourist()) {
                 <a 
-                  routerLink="/user/dashboard"
+                  routerLink="/user/profile"
                   class="px-8 py-3.5 bg-primary hover:bg-primary-light text-white font-black rounded-2xl text-sm transition-all shadow-lg shadow-primary/25 flex items-center justify-center gap-2 min-h-[48px]"
                 >
-                  🎒 Vai alla tua Dashboard
+                  🎒 Vai al tuo Profilo
                 </a>
               } @else if (authService.isOperator()) {
                 <a 
@@ -251,10 +251,10 @@ import { AuthService } from '../../../services/auth.service';
             </p>
             <div class="flex justify-center">
               <a 
-                routerLink="/user/dashboard"
+                routerLink="/user/profile"
                 class="px-8 py-4 bg-primary hover:bg-primary-light text-white font-black rounded-2xl text-sm transition-all shadow-lg shadow-primary/25 flex items-center justify-center gap-2 min-h-[48px]"
               >
-                🎒 Vai alla tua Dashboard
+                🎒 Vai al tuo Profilo
               </a>
             </div>
           } @else if (authService.isOperator()) {
@@ -289,7 +289,7 @@ import { AuthService } from '../../../services/auth.service';
             <a routerLink="/community" class="hover:text-white transition-colors">Community</a>
             @if (authService.isLoggedIn()) {
               <a 
-                [routerLink]="authService.isOperator() ? '/admin/live-map' : '/user/dashboard'" 
+                [routerLink]="authService.isOperator() ? '/admin/live-map' : '/user/profile'" 
                 class="hover:text-white transition-colors"
               >
                 Il mio Profilo

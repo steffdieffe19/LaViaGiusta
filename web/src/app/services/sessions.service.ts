@@ -116,7 +116,7 @@ export class SessionsService implements OnDestroy {
   /**
    * Updates the internal activeSessions signal with the received payload
    */
-  private updateSession(updatedSession: HikerSession): void {
+  public updateSession(updatedSession: HikerSession): void {
     const current = this.activeSessions();
     const index = current.findIndex(s => s.id === updatedSession.id);
 
@@ -150,6 +150,25 @@ export class SessionsService implements OnDestroy {
       tap(() => {
         // Optimistically remove the session from active sessions
         this.activeSessions.set(this.activeSessions().filter(s => s.id !== sessionId));
+      })
+    );
+  }
+
+  /**
+   * Takes charge of an emergency/alert session via the operator endpoint
+   */
+  public takeChargeSession(sessionId: string): Observable<{ success: boolean; data: any }> {
+    const token = localStorage.getItem('access_token') || '';
+    const headers = { Authorization: `Bearer ${token}` };
+    return this.http.post<{ success: boolean; data: any }>(
+      `${this.apiUrl}/hikes/${sessionId}/take-charge`,
+      {},
+      { headers }
+    ).pipe(
+      tap((res) => {
+        if (res && res.success && res.data) {
+          this.updateSession(res.data);
+        }
       })
     );
   }

@@ -78,4 +78,28 @@ router.post('/hikes/:id/resolve', requireAuth, requireRole('operator'), async (r
   }
 });
 
+/**
+ * POST /api/v1/admin/hikes/:id/take-charge
+ * Take charge of a hiker session alert (operator takes responsibility)
+ */
+router.post('/hikes/:id/take-charge', requireAuth, requireRole('operator'), async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const id = req.params.id as string;
+    const operatorId = req.user?.id;
+
+    if (!operatorId) {
+      res.status(401).json({ success: false, error: 'Unauthorized: missing user ID' });
+      return;
+    }
+
+    const updated = await SessionsService.takeChargeSession(id, operatorId);
+    res.json({
+      success: true,
+      data: updated
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;

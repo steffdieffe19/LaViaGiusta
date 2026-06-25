@@ -34,6 +34,8 @@ model User {
   // Preferences
   locale          String   @default("it") @db.VarChar(5)
   avatarUrl       String?  @map("avatar_url")
+  bio             String?  @db.VarChar(500)
+  location        String?  @db.VarChar(150)
   fitnessLevel    String   @default("intermediate") @map("fitness_level") @db.VarChar(20)
 
   // GDPR
@@ -138,6 +140,7 @@ enum SessionStatus {
   completed
   cancelled
   resolved
+  in_gestione
 
   @@map("session_status")
 }

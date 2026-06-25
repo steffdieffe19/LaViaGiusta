@@ -121,7 +121,7 @@ export class TrailsController {
     try {
       const parsed = nearbyQuerySchema.parse(req.query);
       const trails = await TrailsService.getNearbyTrails(parsed.lat, parsed.lng, parsed.radius);
-      
+
       const response: ApiResponse<typeof trails> = {
         success: true,
         data: trails,
@@ -228,6 +228,101 @@ export class TrailsController {
       });
     } catch (err) {
       next(err);
+    }
+  }
+
+  /**
+   * GET /trails/:id/weather
+   * Fetch real-time weather and 7-day forecast for the trail start point via Open-Meteo
+   */
+  public static async getWeather(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const id = req.params.id as string;
+
+      // Extract start-point coordinates from PostGIS geometry
+      const coordsResult = await prisma.$queryRaw<Array<{ lat: number; lng: number }>>`
+        SELECT
+          ST_Y(start_point::geometry) AS lat,
+          ST_X(start_point::geometry) AS lng
+        FROM trails
+        WHERE id = ${id}::uuid
+      `;
+
+      if (!coordsResult || coordsResult.length === 0) {
+        res.status(404).json({ success: false, error: 'Sentiero non trovato.' });
+        return;
+      }
+
+      const { lat, lng } = coordsResult[0];
+
+      if (lat == null || lng == null) {
+        res.status(422).json({ success: false, error: 'Coordinate geografiche non disponibili per questo sentiero.' });
+        return;
+      }
+
+      // Call Open-Meteo — current + hourly (next 8h) + daily (7 days)
+      const url =
+        `https://api.open-meteo.com/v1/forecast` +
+        `?latitude=${lat}&longitude=${lng}` +
+        `&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m` +
+        `&hourly=temperature_2m,precipitation_probability,weather_code` +
+        `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max` +
+        `&forecast_days=7&timezone=auto`;
+
+      const weatherResponse = await fetch(url);
+      if (!weatherResponse.ok) {
+        throw new Error(`Open-Meteo API error: ${weatherResponse.status} ${weatherResponse.statusText}`);
+      }
+
+      const raw = await weatherResponse.json() as any;
+
+      // ── Current conditions ─────────────────────────────────────────────────
+      const current = {
+        temperature: Math.round(raw.current.temperature_2m),
+        relativeHumidity: raw.current.relative_humidity_2m,
+        apparentTemperature: Math.round(raw.current.apparent_temperature),
+        isDay: raw.current.is_day,
+        precipitation: raw.current.precipitation,
+        weatherCode: raw.current.weather_code,
+        windSpeed: Math.round(raw.current.wind_speed_10m),
+      };
+
+      // ── Hourly forecast (next 8 hours from now) ────────────────────────────
+      const now = new Date();
+      const hourly: Array<{
+        time: string;
+        temperature: number;
+        precipitationProbability: number;
+        weatherCode: number;
+      }> = [];
+
+      const times = raw.hourly.time as string[];
+      for (let i = 0; i < times.length; i++) {
+        if (new Date(times[i]) >= now && hourly.length < 8) {
+          hourly.push({
+            time: times[i],
+            temperature: Math.round(raw.hourly.temperature_2m[i]),
+            precipitationProbability: raw.hourly.precipitation_probability[i],
+            weatherCode: raw.hourly.weather_code[i],
+          });
+        }
+      }
+
+      // ── Daily forecast (7 days) ────────────────────────────────────────────
+      const daily = (raw.daily.time as string[]).map((time: string, i: number) => ({
+        time,
+        temperatureMax: Math.round(raw.daily.temperature_2m_max[i]),
+        temperatureMin: Math.round(raw.daily.temperature_2m_min[i]),
+        weatherCode: raw.daily.weather_code[i],
+        precipitationProbabilityMax: raw.daily.precipitation_probability_max[i],
+      }));
+
+      res.json({
+        success: true,
+        data: { current, hourly, daily },
+      });
+    } catch (error) {
+      next(error);
     }
   }
 }

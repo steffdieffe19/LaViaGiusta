@@ -16,6 +16,8 @@ import { forkJoin, catchError, of } from 'rxjs';
 import * as maplibregl from 'maplibre-gl';
 import { Chart, registerables } from 'chart.js';
 import { AuthService } from '../../../services/auth.service';
+import { SessionsService } from '../../../services/sessions.service';
+import { WeatherService, WeatherData } from '../../../services/weather.service';
 
 Chart.register(...registerables);
 
@@ -71,9 +73,9 @@ interface TrailDetail {
 // ── Difficulty label map ────────────────────────────────────────────────────
 
 const DIFFICULTY_MAP: Record<string, string> = {
-  T:   'Turistico',
-  E:   'Escursionistico',
-  EE:  'Per Esperti',
+  T: 'Turistico',
+  E: 'Escursionistico',
+  EE: 'Per Esperti',
   EEA: 'Alpinistico',
 };
 
@@ -390,6 +392,134 @@ const DIFFICULTY_MAP: Record<string, string> = {
               </button>
             </div>
 
+            <!-- Weather Card -->
+            <div (click)="!weatherLoading && weatherData && (isWeatherModalOpen = true)"
+                 class="bg-white/70 backdrop-blur-md border border-slate-200/50 rounded-3xl p-6 shadow-sm cursor-pointer hover:scale-[1.02] hover:shadow-lg transition-all duration-300 ring-1 ring-transparent hover:ring-blue-500/50">
+              <h3 class="text-base font-bold text-slate-900 border-b border-slate-100 pb-3 mb-4 flex items-center justify-between">
+                <span>Condizioni Meteo</span>
+                <span class="text-[10px] text-slate-400 font-normal font-sans uppercase tracking-wider">Tempo Reale</span>
+              </h3>
+
+              @if (weatherLoading) {
+                <!-- Skeleton Loader -->
+                <div class="animate-pulse space-y-4">
+                  <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 bg-slate-200 rounded-2xl"></div>
+                    <div class="space-y-2 flex-1">
+                      <div class="h-6 bg-slate-200 rounded-lg w-1/3"></div>
+                      <div class="h-4 bg-slate-200 rounded-lg w-1/2"></div>
+                    </div>
+                  </div>
+                  <div class="grid grid-cols-2 gap-4 pt-2">
+                    <div class="h-10 bg-slate-200 rounded-xl"></div>
+                    <div class="h-10 bg-slate-200 rounded-xl"></div>
+                  </div>
+                  <div class="border-t border-slate-200/50 pt-4 flex gap-4">
+                    <div class="h-14 bg-slate-200 rounded-xl flex-1"></div>
+                    <div class="h-14 bg-slate-200 rounded-xl flex-1"></div>
+                    <div class="h-14 bg-slate-200 rounded-xl flex-1"></div>
+                    <div class="h-14 bg-slate-200 rounded-xl flex-1"></div>
+                  </div>
+                </div>
+              } @else if (weatherError) {
+                <div class="text-center py-6">
+                  <span class="text-3xl block mb-2">⚠️</span>
+                  <p class="text-sm text-slate-500 font-medium">{{ weatherError }}</p>
+                </div>
+              } @else if (weatherData) {
+                <!-- Current conditions -->
+                <div class="flex items-center gap-4 mb-4">
+                  <!-- Weather icon -->
+                  <div class="w-14 h-14 flex items-center justify-center bg-gradient-to-br from-sky-50 to-blue-50 rounded-2xl shadow-sm shrink-0">
+                    @switch (getWeatherIconKey(weatherData.current.weatherCode)) {
+                      @case ('clear') {
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" class="w-8 h-8 text-amber-500">
+                          <circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/>
+                          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                          <line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/>
+                          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                        </svg>
+                      }
+                      @case ('partly-cloudy') {
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-8 h-8 text-slate-400">
+                          <path d="M9 12a3 3 0 0 1 3-3 5 5 0 0 1 4.9 4H18a3 3 0 0 1 0 6H9a3 3 0 0 1 0-6z"/>
+                        </svg>
+                      }
+                      @case ('cloudy') {
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-8 h-8 text-slate-400">
+                          <path d="M17.5 19H9a7 7 0 0 1-1.95-13.73 6 6 0 0 1 11.9 1.23A5 5 0 0 1 17.5 19z"/>
+                        </svg>
+                      }
+                      @case ('fog') {
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-8 h-8 text-slate-400">
+                          <line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="15" x2="21" y2="15"/>
+                        </svg>
+                      }
+                      @case ('rain') {
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-8 h-8 text-blue-500">
+                          <path d="M20 16.2A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 0 4 14.9"/>
+                          <line x1="8" y1="19" x2="8" y2="21"/><line x1="12" y1="17" x2="12" y2="19"/><line x1="16" y1="19" x2="16" y2="21"/>
+                        </svg>
+                      }
+                      @case ('snow') {
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-8 h-8 text-sky-400">
+                          <line x1="12" y1="2" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+                          <line x1="2" y1="12" x2="22" y2="12"/><line x1="19.07" y1="4.93" x2="4.93" y2="19.07"/>
+                        </svg>
+                      }
+                      @case ('storm') {
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-8 h-8 text-yellow-500">
+                          <path d="M19 16.9A5 5 0 0 0 18 7h-1.26a8 8 0 1 0-11.62 9"/>
+                          <polyline points="13 11 9 17 15 17 11 23"/>
+                        </svg>
+                      }
+                      @default {
+                        <span class="text-3xl">🌤️</span>
+                      }
+                    }
+                  </div>
+                  <div>
+                    <div class="text-3xl font-black text-slate-900 leading-none">{{ weatherData.current.temperature }}°</div>
+                    <div class="text-sm font-semibold text-slate-500 mt-1">{{ getWeatherLabel(weatherData.current.weatherCode) }}</div>
+                    <div class="text-xs text-slate-400 mt-0.5 font-sans">Percepita: {{ weatherData.current.apparentTemperature }}°</div>
+                  </div>
+                </div>
+
+                <!-- Stats grid -->
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                  <div class="bg-slate-50 rounded-2xl p-3">
+                    <span class="text-[10px] text-slate-400 uppercase tracking-wider font-bold block mb-0.5">💨 Vento</span>
+                    <span class="text-sm font-extrabold text-slate-800">{{ weatherData.current.windSpeed }} km/h</span>
+                  </div>
+                  <div class="bg-slate-50 rounded-2xl p-3">
+                    <span class="text-[10px] text-slate-400 uppercase tracking-wider font-bold block mb-0.5">💧 Pioggia</span>
+                    <span class="text-sm font-extrabold text-slate-800">{{ weatherData.current.precipitation }} mm</span>
+                  </div>
+                </div>
+
+                <!-- Hourly forecast -->
+                @if (weatherData.hourly && weatherData.hourly.length > 0) {
+                  <div class="border-t border-slate-100 pt-4">
+                    <p class="text-[10px] text-slate-400 uppercase tracking-wider font-bold mb-3">Prossime ore</p>
+                    <div class="flex gap-2 overflow-x-auto scrollbar-thin pb-1">
+                      @for (hour of weatherData.hourly; track hour.time) {
+                        <div class="flex flex-col items-center gap-1 shrink-0 bg-slate-50 rounded-xl px-3 py-2 min-w-[58px]">
+                          <span class="text-[10px] font-bold text-slate-500">{{ formatForecastHour(hour.time) }}</span>
+                          <span class="text-sm font-extrabold text-slate-800">{{ hour.temperature }}°</span>
+                          <span class="text-[10px] text-blue-500 font-bold">{{ hour.precipitationProbability }}%</span>
+                        </div>
+                      }
+                    </div>
+                  </div>
+                }
+
+                <!-- Hint to open modal -->
+                <div class="mt-4 text-center text-[10px] text-slate-400 font-medium">
+                  Tocca per le previsioni a 7 giorni →
+                </div>
+              }
+            </div>
+
             <!-- POIs card -->
             @if (trail.pois && trail.pois.length > 0) {
               <div class="bg-white rounded-3xl border border-slate-150 shadow-md shadow-slate-100/50 p-6">
@@ -419,6 +549,119 @@ const DIFFICULTY_MAP: Record<string, string> = {
           </div>
         </div>
       }
+
+      <!-- ── Modal Previsioni 7 Giorni — Mobile-First (Fase 16.4) ── -->
+      @if (isWeatherModalOpen && weatherData && trail) {
+        <div class="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <!-- Card container: Mobile-first layout with flex-col and overflow control -->
+          <div class="w-[92%] md:w-full max-w-2xl max-h-[90dvh] bg-white rounded-3xl flex flex-col shadow-2xl overflow-hidden">
+
+            <!-- Fixed Header -->
+            <div class="shrink-0 flex items-start justify-between p-4 md:p-6 border-b border-slate-100">
+              <div>
+                <h3 class="text-2xl font-black text-slate-800 tracking-tight">Previsioni Localizzate</h3>
+                <p class="text-sm font-medium text-slate-500 mt-1">{{ trail.name }} ({{ trail.code }})</p>
+              </div>
+              <button (click)="isWeatherModalOpen = false"
+                class="shrink-0 ml-4 p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer flex items-center justify-center font-bold">
+                ✕
+              </button>
+            </div>
+
+            <!-- Scrollable content area -->
+            <div class="flex-1 overflow-y-auto p-4 md:p-6 space-y-2">
+              @for (day of weatherData.daily; track day.time) {
+                <div class="flex items-center justify-between p-3 md:p-4 bg-slate-50 hover:bg-slate-100 rounded-2xl gap-2 md:gap-4 transition-colors">
+
+                  <!-- Rigid date block -->
+                  <div class="shrink-0 w-12 md:w-16">
+                    <span class="block font-bold text-slate-800 text-sm leading-tight">{{ formatDailyDate(day.time).split(' ')[0] }}</span>
+                    <span class="block text-[10px] md:text-xs text-slate-500 leading-tight">{{ formatDailyDate(day.time).split(' ').slice(1).join(' ') }}</span>
+                  </div>
+
+                  <!-- Icon and description block: stacks on mobile, row on desktop -->
+                  <div class="flex flex-col md:flex-row md:items-center items-start gap-1 md:gap-3 flex-1 min-w-0">
+                    <div class="w-7 h-7 flex items-center justify-center shrink-0">
+                      @switch (getWeatherIconKey(day.weatherCode)) {
+                        @case ('clear') {
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" class="w-6 h-6 text-amber-500">
+                            <circle cx="12" cy="12" r="4"/>
+                            <line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/>
+                            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                            <line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/>
+                            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                          </svg>
+                        }
+                        @case ('partly-cloudy') {
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-6 h-6 text-slate-400">
+                            <path d="M9 12a3 3 0 0 1 3-3 5 5 0 0 1 4.9 4H18a3 3 0 0 1 0 6H9a3 3 0 0 1 0-6z"/>
+                          </svg>
+                        }
+                        @case ('cloudy') {
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-6 h-6 text-slate-400">
+                            <path d="M17.5 19H9a7 7 0 0 1-1.95-13.73 6 6 0 0 1 11.9 1.23A5 5 0 0 1 17.5 19z"/>
+                          </svg>
+                        }
+                        @case ('fog') {
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-6 h-6 text-slate-400">
+                            <line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="15" x2="21" y2="15"/>
+                          </svg>
+                        }
+                        @case ('rain') {
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-6 h-6 text-blue-500">
+                            <path d="M20 16.2A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 0 4 14.9"/>
+                            <line x1="8" y1="19" x2="8" y2="21"/><line x1="12" y1="17" x2="12" y2="19"/><line x1="16" y1="19" x2="16" y2="21"/>
+                          </svg>
+                        }
+                        @case ('snow') {
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-6 h-6 text-sky-400">
+                            <line x1="12" y1="2" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+                            <line x1="2" y1="12" x2="22" y2="12"/><line x1="19.07" y1="4.93" x2="4.93" y2="19.07"/>
+                          </svg>
+                        }
+                        @case ('storm') {
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-6 h-6 text-yellow-500">
+                            <path d="M19 16.9A5 5 0 0 0 18 7h-1.26a8 8 0 1 0-11.62 9"/>
+                            <polyline points="13 11 9 17 15 17 11 23"/>
+                          </svg>
+                        }
+                        @default {
+                          <span class="text-base">🌤️</span>
+                        }
+                      }
+                    </div>
+                    <span class="text-xs md:text-sm text-slate-600 font-medium leading-tight break-words whitespace-normal">
+                      {{ getWeatherLabel(day.weatherCode) }}
+                    </span>
+                  </div>
+
+                  <!-- Temperatures & rain: stacked on mobile, row on desktop -->
+                  <div class="flex flex-col items-end shrink-0 gap-1 md:flex-row md:items-center md:gap-3">
+                    <div class="flex items-baseline gap-1">
+                      <span class="text-slate-400 text-xs md:text-sm">{{ day.temperatureMin | number:'1.0-0' }}°</span>
+                      <span class="text-slate-200 text-xs mx-0.5">–</span>
+                      <span class="text-slate-800 font-bold text-sm md:text-lg">{{ day.temperatureMax | number:'1.0-0' }}°</span>
+                    </div>
+                    <span class="px-2 py-1 md:px-3 md:py-1.5 text-xs md:text-sm bg-blue-50 text-blue-600 rounded-full font-bold flex items-center gap-1">
+                      💧 {{ day.precipitationProbabilityMax }}%
+                    </span>
+                  </div>
+
+                </div>
+              }
+            </div>
+
+            <!-- Fixed Footer -->
+            <div class="shrink-0 p-4 md:p-6 border-t border-slate-100">
+              <button (click)="isWeatherModalOpen = false"
+                class="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors cursor-pointer min-h-[48px]">
+                Chiudi
+              </button>
+            </div>
+
+          </div>
+        </div>
+      }
     </div>
   `,
   styles: [`
@@ -429,15 +672,17 @@ const DIFFICULTY_MAP: Record<string, string> = {
 })
 export class TrailDetailComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('mapContainer') mapContainer!: ElementRef;
-  @ViewChild('chartCanvas')  chartCanvas!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('chartCanvas') chartCanvas!: ElementRef<HTMLCanvasElement>;
 
-  private readonly route  = inject(ActivatedRoute);
-  private readonly http   = inject(HttpClient);
-  private readonly cdr    = inject(ChangeDetectorRef);
+  private readonly route = inject(ActivatedRoute);
+  private readonly http = inject(HttpClient);
+  private readonly cdr = inject(ChangeDetectorRef);
   private readonly router = inject(Router);
   public readonly authService = inject(AuthService);
+  private readonly sessionsService = inject(SessionsService);
+  private readonly weatherService = inject(WeatherService);
 
-  private map!:   maplibregl.Map;
+  private map!: maplibregl.Map;
   private chart!: Chart;
 
   // ── public state ──────────────────────────────────────────────────────────
@@ -446,11 +691,17 @@ export class TrailDetailComponent implements OnInit, AfterViewInit, OnDestroy {
   public trail: TrailDetail | null = null;
   public isSatelliteMode = false;
 
+  // Weather state
+  public weatherLoading = true;
+  public weatherError: string | null = null;
+  public weatherData: WeatherData | null = null;
+  public isWeatherModalOpen = false;
+
   // Derived display fields
-  public difficultyLabel    = '';
+  public difficultyLabel = '';
   public difficultyBadgeClass = '';
-  public difficultyTextClass  = '';
-  public estimatedHoursLabel  = '';
+  public difficultyTextClass = '';
+  public estimatedHoursLabel = '';
 
   // Real data from GeoJSON
   public routeCoordinates: [number, number][] = [];
@@ -475,6 +726,7 @@ export class TrailDetailComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     this.fetchTrailData(id);
+    this.fetchWeather(id);
   }
 
   ngAfterViewInit(): void {
@@ -523,6 +775,123 @@ export class TrailDetailComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  private fetchWeather(id: string): void {
+    this.weatherLoading = true;
+    this.weatherError = null;
+    this.weatherService.getTrailWeather(id).subscribe({
+      next: (res) => {
+        if (res?.success && res.data) {
+          this.weatherData = res.data;
+        } else {
+          this.weatherError = 'Meteo non disponibile.';
+        }
+        this.weatherLoading = false;
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Error fetching weather data:', err);
+        this.weatherError = 'Errore caricamento meteo.';
+        this.weatherLoading = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  public getWeatherLabel(code: number): string {
+    switch (code) {
+      case 0: return 'Sereno';
+      case 1: return 'Prevalentemente sereno';
+      case 2: return 'Parzialmente nuvoloso';
+      case 3: return 'Coperto';
+      case 45:
+      case 48: return 'Nebbia';
+      case 51:
+      case 53:
+      case 55: return 'Pioggerella';
+      case 56:
+      case 57: return 'Pioggerella gelida';
+      case 61:
+      case 63:
+      case 65: return 'Pioggia';
+      case 66:
+      case 67: return 'Pioggia gelida';
+      case 71:
+      case 73:
+      case 75: return 'Neve';
+      case 77: return 'Neve granulosa';
+      case 80:
+      case 81:
+      case 82: return 'Rovesci di pioggia';
+      case 85:
+      case 86: return 'Rovesci di neve';
+      case 95: return 'Temporale';
+      case 96:
+      case 99: return 'Temporale con grandine';
+      default: return 'Variabile';
+    }
+  }
+
+  public formatForecastHour(timeStr: string): string {
+    if (!timeStr) return '';
+    if (timeStr.includes('T')) {
+      return timeStr.split('T')[1] || '';
+    }
+    return timeStr;
+  }
+
+  public getWeatherIconKey(code: number): string {
+    switch (code) {
+      case 0:
+      case 1:
+        return 'clear';
+      case 2:
+        return 'partly-cloudy';
+      case 3:
+        return 'cloudy';
+      case 45:
+      case 48:
+        return 'fog';
+      case 51:
+      case 53:
+      case 55:
+      case 56:
+      case 57:
+      case 61:
+      case 63:
+      case 65:
+      case 66:
+      case 67:
+      case 80:
+      case 81:
+      case 82:
+        return 'rain';
+      case 71:
+      case 73:
+      case 75:
+      case 77:
+      case 85:
+      case 86:
+        return 'snow';
+      case 95:
+      case 96:
+      case 99:
+        return 'storm';
+      default:
+        return 'rain';
+    }
+  }
+
+  public formatDailyDate(dateStr: string): string {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    const weekday = d.toLocaleDateString('it-IT', { weekday: 'short' });
+    const day = d.toLocaleDateString('it-IT', { day: '2-digit' });
+    const month = d.toLocaleDateString('it-IT', { month: 'short' });
+    const formattedWeekday = weekday.charAt(0).toUpperCase() + weekday.slice(1);
+    const formattedMonth = month.charAt(0).toUpperCase() + month.slice(1).replace('.', '');
+    return `${formattedWeekday} ${day} ${formattedMonth}`;
+  }
+
   // ── Derived fields ─────────────────────────────────────────────────────────
 
   private computeDerivedFields(): void {
@@ -532,19 +901,19 @@ export class TrailDetailComponent implements OnInit, AfterViewInit, OnDestroy {
     this.difficultyLabel = DIFFICULTY_MAP[d] ?? 'Sconosciuto';
 
     const badgeClasses: Record<string, string> = {
-      T:   'bg-emerald-50 text-emerald-700 border-emerald-200',
-      E:   'bg-emerald-50 text-emerald-700 border-emerald-200',
-      EE:  'bg-amber-50 text-amber-700 border-amber-200',
+      T: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      E: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      EE: 'bg-amber-50 text-amber-700 border-amber-200',
       EEA: 'bg-red-50 text-red-700 border-red-200',
     };
     const textClasses: Record<string, string> = {
-      T:   'text-emerald-700',
-      E:   'text-emerald-700',
-      EE:  'text-amber-600',
+      T: 'text-emerald-700',
+      E: 'text-emerald-700',
+      EE: 'text-amber-600',
       EEA: 'text-red-600',
     };
     this.difficultyBadgeClass = badgeClasses[d] ?? 'bg-slate-100 text-slate-600 border-slate-200';
-    this.difficultyTextClass  = textClasses[d]  ?? 'text-slate-800';
+    this.difficultyTextClass = textClasses[d] ?? 'text-slate-800';
 
     const totalMin = this.trail.avgDurationMinutes
       ?? Math.round((this.trail.distanceMeters / 1000) * 20 + ((this.trail.elevationGain ?? 0) / 100) * 15);
@@ -579,7 +948,7 @@ export class TrailDetailComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.trail?.startPoint && this.trail.endPoint) {
       this.routeCoordinates = [
         [this.trail.startPoint.longitude, this.trail.startPoint.latitude],
-        [this.trail.endPoint.longitude,   this.trail.endPoint.latitude],
+        [this.trail.endPoint.longitude, this.trail.endPoint.latitude],
       ];
     }
     this.elevationProfile = this.synthesizeProfile();
@@ -614,11 +983,11 @@ export class TrailDetailComponent implements OnInit, AfterViewInit, OnDestroy {
   /** Synthesizes a plausible elevation profile when Z-values are not in the GeoJSON */
   private synthesizeProfile(): { distance: number; elevation: number }[] {
     if (!this.trail) return [];
-    const distKm  = this.trail.distanceMeters / 1000;
-    const minEl   = this.trail.elevationMin  ?? 400;
-    const maxEl   = (this.trail.elevationMin ?? 400) + (this.trail.elevationGain ?? 300);
-    const isLoop  = this.trail.isLoop;
-    const STEPS   = 20;
+    const distKm = this.trail.distanceMeters / 1000;
+    const minEl = this.trail.elevationMin ?? 400;
+    const maxEl = (this.trail.elevationMin ?? 400) + (this.trail.elevationGain ?? 300);
+    const isLoop = this.trail.isLoop;
+    const STEPS = 20;
     const result: { distance: number; elevation: number }[] = [];
 
     for (let i = 0; i <= STEPS; i++) {
@@ -630,7 +999,7 @@ export class TrailDetailComponent implements OnInit, AfterViewInit, OnDestroy {
       } else {
         el = p <= 0.5
           ? minEl + (maxEl - minEl) * (p * 2)
-          : maxEl  - (maxEl - minEl) * ((p - 0.5) * 2);
+          : maxEl - (maxEl - minEl) * ((p - 0.5) * 2);
       }
       result.push({ distance: dist, elevation: Math.round(el) });
     }
@@ -642,8 +1011,8 @@ export class TrailDetailComponent implements OnInit, AfterViewInit, OnDestroy {
     const φ1 = lat1 * Math.PI / 180, φ2 = lat2 * Math.PI / 180;
     const dφ = (lat2 - lat1) * Math.PI / 180;
     const dλ = (lon2 - lon1) * Math.PI / 180;
-    const a  = Math.sin(dφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(dλ/2)**2;
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const a = Math.sin(dφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(dλ / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 
   // ── Map ────────────────────────────────────────────────────────────────────
@@ -659,10 +1028,10 @@ export class TrailDetailComponent implements OnInit, AfterViewInit, OnDestroy {
       : [13.51, 42.71];
 
     this.map = new maplibregl.Map({
-      container:        this.mapContainer.nativeElement,
-      style:            'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+      container: this.mapContainer.nativeElement,
+      style: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
       center,
-      zoom:             13,
+      zoom: 13,
       attributionControl: false,
     });
 
@@ -799,7 +1168,7 @@ export class TrailDetailComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!ctx) return;
 
     const labels = this.elevationProfile.map(p => `${p.distance} km`);
-    const data   = this.elevationProfile.map(p => p.elevation);
+    const data = this.elevationProfile.map(p => p.elevation);
 
     // Gradient fill
     const grad = ctx.createLinearGradient(0, 0, 0, 200);
@@ -813,53 +1182,53 @@ export class TrailDetailComponent implements OnInit, AfterViewInit, OnDestroy {
         datasets: [{
           label: 'Altitudine (m)',
           data,
-          borderColor:  '#2d6a4f',
-          borderWidth:  2,
-          fill:         true,
+          borderColor: '#2d6a4f',
+          borderWidth: 2,
+          fill: true,
           backgroundColor: grad,
-          tension:      0.35,
-          pointRadius:  0,
-          pointHoverRadius:          5,
+          tension: 0.35,
+          pointRadius: 0,
+          pointHoverRadius: 5,
           pointHoverBackgroundColor: '#ff6b35',
-          pointHoverBorderColor:     '#fff',
-          pointHoverBorderWidth:     2,
+          pointHoverBorderColor: '#fff',
+          pointHoverBorderWidth: 2,
         }],
       },
       options: {
-        responsive:           true,
-        maintainAspectRatio:  false,
+        responsive: true,
+        maintainAspectRatio: false,
         interaction: { mode: 'index', intersect: false },
         plugins: {
           legend: { display: false },
           tooltip: {
             backgroundColor: '#1e293b',
-            titleColor:      '#ffffff',
-            bodyColor:       '#e2e8f0',
-            borderColor:     '#334155',
-            borderWidth:     1,
-            padding:         10,
+            titleColor: '#ffffff',
+            bodyColor: '#e2e8f0',
+            borderColor: '#334155',
+            borderWidth: 1,
+            padding: 10,
             callbacks: {
-              title:  items => `📍 ${items[0]?.label ?? ''}`,
-              label:  ctx   => `  Quota: ${ctx.parsed.y} m`,
+              title: items => `📍 ${items[0]?.label ?? ''}`,
+              label: ctx => `  Quota: ${ctx.parsed.y} m`,
             },
           },
         },
         scales: {
           x: {
-            grid:  { display: false },
+            grid: { display: false },
             ticks: {
               maxTicksLimit: 10,
-              color:  '#94a3b8',
-              font:   { size: 9 },
+              color: '#94a3b8',
+              font: { size: 9 },
               maxRotation: 0,
             },
           },
           y: {
-            grid:  { color: '#f1f5f9' },
+            grid: { color: '#f1f5f9' },
             ticks: {
-              color:     '#94a3b8',
-              font:      { size: 9 },
-              callback:  v => `${v}m`,
+              color: '#94a3b8',
+              font: { size: 9 },
+              callback: v => `${v}m`,
             },
           },
         },
@@ -882,20 +1251,48 @@ export class TrailDetailComponent implements OnInit, AfterViewInit, OnDestroy {
     gpx += `\n    </trkseg></trk>\n</gpx>`;
 
     const blob = new Blob([gpx], { type: 'application/gpx+xml' });
-    const url  = URL.createObjectURL(blob);
-    const a    = Object.assign(document.createElement('a'), { href: url, download: `${this.trail.code}-${this.trail.name}.gpx` });
+    const url = URL.createObjectURL(blob);
+    const a = Object.assign(document.createElement('a'), { href: url, download: `${this.trail.code}-${this.trail.name}.gpx` });
     a.click();
     URL.revokeObjectURL(url);
   }
 
   public openInMobileApp(): void {
     if (!this.trail) return;
-    const deepLink = `laviagiusta://trail-detail?trailId=${this.trail.id}`;
-    window.location.href = deepLink;
-    setTimeout(() => {
-      alert('Reindirizzamento all\'app "LaViaGiusta" in corso…\nSe non è installata, scaricala dall\'App Store o Google Play.');
-    }, 900);
+
+    // Ensure user is logged in
+    if (!this.authService.isLoggedIn()) {
+      this.router.navigate(['/auth']);
+      return;
+    }
+
+    const token = localStorage.getItem('access_token') || '';
+    const headers = new HttpHeaders().set('Authorization', `Bearer ${token}`);
+
+    // Step 1: Check-in to create a new hike session
+    this.http.post<{ success: boolean; data: { id: string } }>(
+      `${this.BASE_URL}/sessions/check-in`,
+      { trailId: this.trail.id },
+      { headers }
+    )
+      .pipe(
+        catchError(err => {
+          console.error('Check-in error:', err);
+          const errMsg = err?.error?.error || 'Errore durante l\'avvio dell\'escursione. Riprova.';
+          // Show a non-blocking inline feedback (no window.alert)
+          this.reviewError = errMsg;
+          return of(null);
+        })
+      )
+      .subscribe(res => {
+        if (res?.success && res.data?.id) {
+          const sessionId = res.data.id;
+          // Step 2: Navigate to the web-based watchdog simulator
+          this.router.navigate(['/user/active-hike', sessionId]);
+        }
+      });
   }
+
 
   // ── Star Picker / Reviews ──────────────────────────────────────────────────
 
@@ -947,7 +1344,7 @@ export class TrailDetailComponent implements OnInit, AfterViewInit, OnDestroy {
           this.selectedRating = 0;
           this.reviewComment = '';
           this.reviewError = null;
-          
+
           // Re-fetch all data to refresh average ratings, totals and reviews list on screen
           this.fetchTrailData(this.trail!.id);
         }

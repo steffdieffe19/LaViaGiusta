@@ -394,8 +394,8 @@ export class AuthComponent implements OnInit {
       console.log('🔓 Logged in as operator. Navigating to municipal live map.');
       this.router.navigate(['/admin/live-map']);
     } else {
-      console.log('🔓 Logged in as tourist. Navigating to hiker dashboard.');
-      this.router.navigate(['/user/dashboard']);
+      console.log('🔓 Logged in as tourist. Navigating to hiker profile.');
+      this.router.navigate(['/user/profile']);
     }
   }
 }

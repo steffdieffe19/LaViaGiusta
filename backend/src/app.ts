@@ -11,14 +11,30 @@ import trailRoutes from './modules/trails/trails.routes.js';
 import sessionRoutes from './modules/sessions/sessions.routes.js';
 import adminRoutes from './modules/admin/admin.routes.js';
 import communityRoutes from './modules/community/community.routes.js';
+import userRoutes from './modules/user/user.routes.js';
 import { startWatchdogWorker } from './jobs/watchdog-worker.js';
 import { errorHandler } from './shared/middleware/error-handler.js';
 
 const app = express();
 
+// ── Global crash guards (visible in tsx watch output) ──────
+process.on('uncaughtException', (err) => {
+  console.error('🔴 Crash Critico (uncaughtException):', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('🔴 Promise Rifiutata (unhandledRejection):', reason);
+});
+
 // ── Middleware ──────────────────────────────────────────────
 app.use(helmet({ crossOriginResourcePolicy: false }));
-app.use(cors({ origin: env.NODE_ENV === 'development' ? '*' : [] }));
+app.use(cors({
+  origin: env.NODE_ENV === 'development'
+    ? ['http://localhost:4200', 'http://127.0.0.1:4200']
+    : [],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+}));
 app.use(compression());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -38,6 +54,7 @@ app.use(`${env.API_PREFIX}/trails`, trailRoutes);
 app.use(`${env.API_PREFIX}/sessions`, sessionRoutes);
 app.use(`${env.API_PREFIX}/admin`, adminRoutes);
 app.use(`${env.API_PREFIX}/community`, communityRoutes);
+app.use(`${env.API_PREFIX}/user`, userRoutes);
 
 // ── Error Handler ──────────────────────────────────────────
 app.use(errorHandler);
@@ -47,10 +64,12 @@ async function start(): Promise<void> {
   await connectDatabase();
   startWatchdogWorker();
 
-  app.listen(env.PORT, () => {
+  console.log(`⏳ Tentativo di avvio sulla porta: ${env.PORT}`);
+  app.listen(env.PORT, '::', () => {
     console.log(`\n🏔️  LaViaGiusta Backend`);
     console.log(`   Environment: ${env.NODE_ENV}`);
     console.log(`   Port: ${env.PORT}`);
+    console.log(`   Binding: :: (dual-stack IPv4 + IPv6)`);
     console.log(`   API: http://localhost:${env.PORT}${env.API_PREFIX}`);
     console.log(`   Health: http://localhost:${env.PORT}/health\n`);
   });

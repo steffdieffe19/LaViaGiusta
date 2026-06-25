@@ -6,7 +6,8 @@ import { LandingPageComponent } from './features/public/landing-page/landing-pag
 import { TrailDetailComponent } from './features/trails/trail-detail/trail-detail.component';
 import { TrailCatalogComponent } from './features/public/trail-catalog/trail-catalog.component';
 import { CommunityFeedComponent } from './features/public/community-feed/community-feed.component';
-import { TouristDashboardComponent } from './features/user/tourist-dashboard/tourist-dashboard.component';
+import { ProfileComponent } from './features/user/profile/profile.component';
+import { ActiveHikeComponent } from './features/user/active-hike/active-hike.component';
 import { LiveMapComponent } from './components/live-map/live-map.component';
 import { AuthComponent } from './features/public/auth/auth.component';
 import { AuthService } from './services/auth.service';
@@ -54,12 +55,14 @@ export const routes: Routes = [
   { path: 'community', component: CommunityFeedComponent },
 
   // ── 2. Private Hiker Area ──
-  { 
-    path: 'user', 
+  {
+    path: 'user',
     canActivate: [authGuard],
     children: [
-      { path: 'dashboard', component: TouristDashboardComponent },
-      { path: '', redirectTo: 'dashboard', pathMatch: 'full' }
+      { path: 'profile', component: ProfileComponent },
+      { path: 'active-hike/:sessionId', component: ActiveHikeComponent },
+      { path: 'dashboard', redirectTo: 'profile', pathMatch: 'full' },
+      { path: '', redirectTo: 'profile', pathMatch: 'full' }
     ]
   },
 

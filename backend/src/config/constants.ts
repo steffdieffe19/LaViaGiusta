@@ -11,6 +11,7 @@ export const SESSION_STATUSES = [
   'completed',
   'cancelled',
   'resolved',
+  'in_gestione',
 ] as const;
 export type SessionStatus = typeof SESSION_STATUSES[number];
 

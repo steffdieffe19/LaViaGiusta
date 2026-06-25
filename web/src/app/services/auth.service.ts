@@ -6,6 +6,7 @@ export interface UserProfile {
   fullName: string;
   role: 'tourist' | 'operator';
   phone?: string;
+  avatarUrl?: string;
   medicalProfile?: {
     blood_type?: string;
     allergies?: string[];

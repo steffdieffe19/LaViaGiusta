@@ -37,3 +37,31 @@ export const uploadCommunityImage = multer({
     fileSize: 10 * 1024 * 1024 // Limit files to 10MB
   }
 });
+
+// Define the avatars uploads folder at src/public/uploads/avatars
+const avatarDir = path.join(process.cwd(), 'src/public/uploads/avatars');
+
+// Synchronously create upload path if it does not exist
+if (!fs.existsSync(avatarDir)) {
+  fs.mkdirSync(avatarDir, { recursive: true });
+}
+
+const avatarStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, avatarDir);
+  },
+  filename: (_req, file, cb) => {
+    // Create unique filename using timestamp and sanitized original name
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const sanitizedOriginal = file.originalname.replace(/\s+/g, '_');
+    cb(null, `avatar_${uniqueSuffix}_${sanitizedOriginal}`);
+  }
+});
+
+export const uploadAvatar = multer({
+  storage: avatarStorage,
+  fileFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // Limit files to 5MB
+  }
+});

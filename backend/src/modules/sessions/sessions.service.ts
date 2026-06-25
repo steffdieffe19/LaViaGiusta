@@ -453,7 +453,7 @@ export class SessionsService {
       FROM hiking_sessions s
       JOIN users u ON s.user_id = u.id
       JOIN trails t ON s.trail_id = t.id
-      WHERE s.status IN ('active', 'watchdog_alert', 'emergency')
+      WHERE s.status IN ('active', 'watchdog_alert', 'emergency', 'in_gestione')
     `;
 
     return rawSessions.map(s => {
@@ -466,6 +466,9 @@ export class SessionsService {
       } else if (s.status === 'emergency') {
         color = 'red';
         statusStr = 'emergency_triggered';
+      } else if (s.status === 'in_gestione') {
+        color = 'yellow';
+        statusStr = 'in_gestione';
       }
 
       return {
@@ -523,6 +526,9 @@ export class SessionsService {
       } else if (s.status === 'emergency') {
         color = 'red';
         statusStr = 'emergency_triggered';
+      } else if (s.status === 'in_gestione') {
+        color = 'yellow';
+        statusStr = 'in_gestione';
       } else if (['completed', 'cancelled', 'resolved'].includes(s.status)) {
         color = 'gray';
         statusStr = s.status;
@@ -590,6 +596,28 @@ export class SessionsService {
         },
       });
     }
+
+    const refreshed = await this.getSessionWithCoords(sessionId);
+    SessionsService.emitSessionUpdate(sessionId);
+    return this.mapDbSession(refreshed);
+  }
+
+  /**
+   * Takes charge of an active/emergency session by setting status to 'in_gestione'
+   */
+  public static async takeChargeSession(sessionId: string, operatorId: string): Promise<HikingSession> {
+    const dbSession = await this.getSessionWithCoords(sessionId);
+
+    // Cancel watchdog timers
+    await WatchdogService.cancelPendingJobs(sessionId);
+
+    // Update session status to 'in_gestione'
+    await prisma.hikingSession.update({
+      where: { id: sessionId },
+      data: {
+        status: 'in_gestione',
+      },
+    });
 
     const refreshed = await this.getSessionWithCoords(sessionId);
     SessionsService.emitSessionUpdate(sessionId);

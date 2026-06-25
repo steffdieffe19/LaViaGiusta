@@ -9,6 +9,7 @@ router.get('/', TrailsController.list);
 router.get('/nearby', TrailsController.nearby);
 router.get('/:id', TrailsController.get);
 router.get('/:id/geojson', TrailsController.geojson);
+router.get('/:id/weather', TrailsController.getWeather);
 
 // Protected routes (import GPX & reviews)
 router.post('/import-gpx', requireAuth, TrailsController.importGpx);
