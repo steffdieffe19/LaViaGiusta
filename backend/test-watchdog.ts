@@ -208,7 +208,9 @@ async function run() {
   } finally {
     // Disconnect from database and redis
     await disconnectDatabase();
-    await redis.quit();
+    if (redis) {
+      await redis.quit();
+    }
   }
 }
 

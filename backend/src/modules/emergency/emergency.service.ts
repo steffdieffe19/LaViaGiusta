@@ -1,6 +1,5 @@
 import twilio from 'twilio';
 import { env } from '../../config/env.js';
-import { getRedisConnection } from '../../config/redis.js';
 
 export class EmergencyService {
   private static client: any;

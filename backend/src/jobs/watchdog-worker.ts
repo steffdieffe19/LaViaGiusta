@@ -5,8 +5,13 @@ import { WatchdogService } from '../modules/sessions/watchdog.service.js';
 const QUEUE_NAME = 'watchdog-queue';
 let watchdogWorker: Worker;
 
-export function startWatchdogWorker(): Worker {
+export function startWatchdogWorker(): Worker | null {
   if (!watchdogWorker) {
+    const connection = getRedisConnection();
+    if (!connection) {
+      console.warn('⚠️  Redis connection is not available. Skipping Watchdog Worker startup.');
+      return null;
+    }
     console.log('⏱️  Starting Watchdog Worker...');
     watchdogWorker = new Worker(
       QUEUE_NAME,
@@ -28,7 +33,7 @@ export function startWatchdogWorker(): Worker {
         }
       },
       {
-        connection: getRedisConnection() as any,
+        connection: connection as any,
         concurrency: 5,
       }
     );

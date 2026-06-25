@@ -5,12 +5,17 @@ import { EmergencyService } from '../emergency/emergency.service.js';
 import { SessionStatus } from '../../config/constants.js';
 
 const QUEUE_NAME = 'watchdog-queue';
-let watchdogQueue: Queue;
+let watchdogQueue: Queue | null = null;
 
-export function getWatchdogQueue(): Queue {
+export function getWatchdogQueue(): Queue | null {
   if (!watchdogQueue) {
+    const connection = getRedisConnection();
+    if (!connection) {
+      console.warn('⚠️  Redis connection is not available. Skipping Watchdog Queue initialization.');
+      return null;
+    }
     watchdogQueue = new Queue(QUEUE_NAME, {
-      connection: getRedisConnection() as any,
+      connection: connection as any,
       defaultJobOptions: {
         removeOnComplete: true,
         removeOnFail: true,
@@ -27,6 +32,10 @@ export class WatchdogService {
   public static async scheduleWatchdogAlert(sessionId: string, delayMs: number): Promise<void> {
     console.log(`⏱️  Scheduling Watchdog Alert for session ${sessionId} in ${delayMs / 1000}s`);
     const queue = getWatchdogQueue();
+    if (!queue) {
+      console.warn('⚠️ Watchdog Alert connection not available. Redis is not configured.');
+      return;
+    }
     const jobId = `alert-timeout-${sessionId}`;
 
     // Remove any existing job for this session to prevent duplicates
@@ -45,6 +54,10 @@ export class WatchdogService {
   public static async scheduleEmergencyTimeout(sessionId: string, delayMs: number): Promise<void> {
     console.log(`⏱️  Scheduling Emergency Timeout for session ${sessionId} in ${delayMs / 1000}s`);
     const queue = getWatchdogQueue();
+    if (!queue) {
+      console.warn('⚠️ Watchdog Emergency Timeout connection not available. Redis is not configured.');
+      return;
+    }
     const jobId = `emergency-timeout-${sessionId}`;
 
     await this.cancelJob(jobId);
@@ -70,6 +83,10 @@ export class WatchdogService {
    */
   private static async cancelJob(jobId: string): Promise<void> {
     const queue = getWatchdogQueue();
+    if (!queue) {
+      console.warn(`⚠️ Cannot cancel job ${jobId}. Redis is not configured.`);
+      return;
+    }
     const job = await queue.getJob(jobId);
     if (job) {
       await job.remove();
