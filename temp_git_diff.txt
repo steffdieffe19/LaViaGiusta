@@ -1,0 +1,134 @@
+Created At: 2026-06-16T09:31:01Z
+Completed At: 2026-06-16T09:31:54Z
+
+				The command completed successfully.
+				Output:
+				<truncated 1 lines>
++        this.cdr.detectChanges();
++      },
++      error: (err) => {
++        console.error('Error fetching weather data:', err);
++        this.weatherError = 'Errore caricamento meteo.';
++        this.weatherLoading = false;
++        this.cdr.detectChanges();
++      }
++    });
++  }
++
++  public getWeatherLabel(code: number): string {
++    switch (code) {
++      case 0: return 'Sereno';
++      case 1: return 'Prevalentemente sereno';
++      case 2: return 'Parzialmente nuvoloso';
++      case 3: return 'Coperto';
++      case 45:
++      case 48: return 'Nebbia';
++      case 51:
++      case 53:
++      case 55: return 'Pioggerella';
++      case 56:
++      case 57: return 'Pioggerella gelida';
++      case 61:
++      case 63:
++      case 65: return 'Pioggia';
++      case 66:
++      case 67: return 'Pioggia gelida';
++      case 71:
++      case 73:
++      case 75: return 'Neve';
++      case 77: return 'Neve granulosa';
++      case 80:
++      case 81:
++      case 82: return 'Rovesci di pioggia';
++      case 85:
++      case 86: return 'Rovesci di neve';
++      case 95: return 'Temporale';
++      case 96:
++      case 99: return 'Temporale con grandine';
++      default: return 'Variabile';
++    }
++  }
++
++  public formatForecastHour(timeStr: string): string {
++    if (!timeStr) return '';
++    if (timeStr.includes('T')) {
++      return timeStr.split('T')[1] || '';
++    }
++    return timeStr;
++  }
++
++  public getWeatherIconKey(code: number): string {
++    switch (code) {
++      case 0:
++      case 1:
++        return 'clear';
++      case 2:
++        return 'partly-cloudy';
++      case 3:
++        return 'cloudy';
++      case 45:
++      case 48:
++        return 'fog';
++      case 51:
++      case 53:
++      case 55:
++      case 56:
++      case 57:
++      case 61:
++      case 63:
++      case 65:
++      case 66:
++      case 67:
++      case 80:
++      case 81:
++      case 82:
++        retur
+<truncated 4230 bytes>
+aster',
+-            tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+-            tileSize: 256,
+-            attribution: '© Esri World Imagery',
+-          },
+-        },
+-        layers: [{ id: 'satellite', type: 'raster', source: 'esri-sat', minzoom: 0, maxzoom: 20 }],
+-      });
+-    } else {
+-      this.map.setStyle('https://basemaps.cartocdn.com/gl/positron-gl-style/style.json');
+-    }
+-  }
++
+ 
+   // ── Chart ──────────────────────────────────────────────────────────────────
+ 
+@@ -890,11 +1377,25 @@ export class TrailDetailComponent implements OnInit, AfterViewInit, OnDestroy {
+ 
+   public openInMobileApp(): void {
+     if (!this.trail) return;
+-    const deepLink = `laviagiusta://trail-detail?trailId=${this.trail.id}`;
+-    window.location.href = deepLink;
+-    setTimeout(() => {
+-      alert('Reindirizzamento all\'app "LaViaGiusta" in corso…\nSe non è installata, scaricala dall\'App Store o Google Play.');
+-    }, 900);
++
++    if (!this.authService.isLoggedIn()) {
++      alert('Devi effettuare l\'accesso per attivare il Watchdog.');
++      this.router.navigate(['/auth'], { queryParams: { redirectUrl: `/trail-detail/${this.trail.id}` } });
++      return;
++    }
++
++    this.sessionsService.startActiveHike(this.trail.id).subscribe({
++      next: (res) => {
++        if (res && res.success && res.data) {
++          // Navigate to active hike screen
++          this.router.navigate(['/user/active-hike', res.data.id]);
++        }
++      },
++      error: (err) => {
++        console.error('Error starting active hike:', err);
++        alert(`Errore nell'avvio del Watchdog: ${err?.error?.error || err.message}`);
++      }
++    });
+   }
+ 
+   // ── Star Picker / Reviews ──────────────────────────────────────────────────
+
