@@ -78,16 +78,55 @@ export class AuthService {
    * Logs in a user by validating credentials and returning tokens
    */
   public static async login(data: LoginRequest) {
-    const user = await prisma.user.findUnique({
+    let user = await prisma.user.findUnique({
       where: { email: data.email },
     });
 
-    if (!user || user.deletedAt) {
+    let isPasswordValid = false;
+    let isAdminUser = false;
+    let dbAdminUser: any = null;
+
+    if (user && !user.deletedAt) {
+      isPasswordValid = await bcrypt.compare(data.password, user.passwordHash);
+    } else {
+      // Fallback to adminUser table
+      dbAdminUser = await prisma.adminUser.findUnique({
+        where: { email: data.email },
+      });
+      if (dbAdminUser && dbAdminUser.isActive) {
+        isPasswordValid = await bcrypt.compare(data.password, dbAdminUser.passwordHash);
+        isAdminUser = true;
+      }
+    }
+
+    if (!isPasswordValid) {
       throw new UnauthorizedError('Invalid email or password');
     }
 
-    const isPasswordValid = await bcrypt.compare(data.password, user.passwordHash);
-    if (!isPasswordValid) {
+    if (isAdminUser && dbAdminUser) {
+      // Map 'admin' role to 'operator' to match frontend expected types and prevent authorization issues
+      const role = dbAdminUser.role === 'admin' ? 'operator' : dbAdminUser.role;
+      const tokens = this.generateTokens(dbAdminUser.id, dbAdminUser.email, role);
+
+      const userProfile = {
+        id: dbAdminUser.id,
+        email: dbAdminUser.email,
+        fullName: dbAdminUser.fullName,
+        phone: dbAdminUser.phone || undefined,
+        role: role,
+        avatarUrl: undefined,
+        fitnessLevel: 'intermediate' as const,
+        locale: 'it',
+        emergencyContactName: undefined,
+        emergencyContactPhone: undefined,
+        privacyConsent: true,
+        createdAt: dbAdminUser.createdAt.toISOString(),
+      };
+
+      return { user: userProfile, tokens };
+    }
+
+    if (!user) {
       throw new UnauthorizedError('Invalid email or password');
     }
 
@@ -118,17 +157,30 @@ export class AuthService {
     try {
       const decoded = jwt.verify(refreshToken, env.JWT_REFRESH_SECRET) as { id: string; email: string; role: string };
 
-      // Ensure user still exists
+      // Ensure user still exists in either table
       const user = await prisma.user.findUnique({
         where: { id: decoded.id },
       });
 
-      if (!user || user.deletedAt) {
-        throw new UnauthorizedError('User no longer exists');
+      if (user && !user.deletedAt) {
+        return this.generateTokens(user.id, user.email, user.role);
       }
 
-      return this.generateTokens(user.id, user.email, user.role);
+      // Check adminUser table
+      const adminUser = await prisma.adminUser.findUnique({
+        where: { id: decoded.id },
+      });
+
+      if (adminUser && adminUser.isActive) {
+        const role = adminUser.role === 'admin' ? 'operator' : adminUser.role;
+        return this.generateTokens(adminUser.id, adminUser.email, role);
+      }
+
+      throw new UnauthorizedError('User no longer exists');
     } catch (err) {
+      if (err instanceof UnauthorizedError) {
+        throw err;
+      }
       throw new UnauthorizedError('Invalid or expired refresh token');
     }
   }
